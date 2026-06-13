@@ -74,23 +74,24 @@ def load_cookie() -> str:
     return ""
 
 
+def _extract_cookie_from_browser(cookie_fn) -> str:
+    try:
+        import browser_cookie3
+        cj = cookie_fn(domain_name=".bilibili.com")
+        for c in cj:
+            if c.name == "SESSDATA":
+                return c.value
+    except Exception:
+        pass
+    return ""
+
+
 def try_browser_cookie() -> str:
-    try:
-        import browser_cookie3
-        cj = browser_cookie3.chrome(domain_name=".bilibili.com")
-        for c in cj:
-            if c.name == "SESSDATA":
-                return c.value
-    except Exception:
-        pass
-    try:
-        import browser_cookie3
-        cj = browser_cookie3.safari(domain_name=".bilibili.com")
-        for c in cj:
-            if c.name == "SESSDATA":
-                return c.value
-    except Exception:
-        pass
+    import browser_cookie3
+    for fn in [browser_cookie3.chrome, browser_cookie3.edge, browser_cookie3.safari]:
+        val = _extract_cookie_from_browser(fn)
+        if val:
+            return val
     return ""
 
 
