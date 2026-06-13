@@ -124,7 +124,7 @@ def qr_login():
     qr = qrcode.QRCode(border=1)
     qr.add_data(qrcode_url)
     qr.make(fit=True)
-    qr.print_ascii(invert=True, file=sys.stderr)
+    qr.print_ascii(out=sys.stderr, invert=True)
 
     png_path = COOKIE_DIR / "login_qr.png"
     COOKIE_DIR.mkdir(parents=True, exist_ok=True)
@@ -141,9 +141,9 @@ def qr_login():
 
     for _ in range(60):
         time.sleep(3)
-        poll_resp = requests.post(
+        poll_resp = requests.get(
             API_QR_POLL,
-            data={"qrcode_key": qrcode_key},
+            params={"qrcode_key": qrcode_key},
             headers=HEADERS,
             timeout=15,
         )
@@ -151,16 +151,20 @@ def qr_login():
         status = poll_data.get("data", {}).get("code", 0)
 
         if status == 0:
-            cookies = poll_data["data"].get("cookie_info", {}).get("cookies", [])
             sessdata = ""
             extra = {}
-            for c in cookies:
-                if c["name"] == "SESSDATA":
-                    sessdata = c["value"]
-                elif c["name"] == "bili_jct":
-                    extra["bili_jct"] = c["value"]
-                elif c["name"] == "DedeUserID":
-                    extra["DedeUserID"] = c["value"]
+            for c in poll_resp.cookies:
+                if c.name == "SESSDATA":
+                    sessdata = c.value
+                elif c.name == "bili_jct":
+                    extra["bili_jct"] = c.value
+                elif c.name == "DedeUserID":
+                    extra["DedeUserID"] = c.value
+            if not sessdata:
+                cookie_header = poll_resp.headers.get("Set-Cookie", "")
+                m = re.search(r"SESSDATA=([^;]+)", cookie_header)
+                if m:
+                    sessdata = m.group(1)
             if sessdata:
                 save_cookie(sessdata, extra)
                 print("\n登录成功！", file=sys.stderr)
